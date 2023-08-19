@@ -1,1 +1,4 @@
+add codes.hmm
+add config.ini
+add config.json
 add mod.ini

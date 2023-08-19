@@ -1,0 +1,50 @@
+{
+   "Groups": [
+      {
+         "Name": "Main",
+         "DisplayName": "Loco's Reimagined Drift Experience",
+        "Elements": [
+          {
+            "Name": "soundName",
+            "DisplayName": "Drift Sound Filename",
+            "Description": [
+              "Choose what file will be played for the drift sound.",
+              "(Default : sound.wav)"
+            ],
+            "Type": "string",
+            "MinValue": null,
+            "MaxValue": null,
+            "DefaultValue": "sound.wav"
+
+          },
+          {
+            "Name": "soundVolume",
+            "DisplayName": "Drift Sound Volume",
+            "Description": [
+              "Choose the volume for the drift sound.",
+              "(Default : 15)"
+            ],
+            "Type": "int",
+            "MinValue": 0,
+            "MaxValue": 100,
+            "DefaultValue": 15
+
+          },
+          {
+            "Name": "slideDisable",
+            "DisplayName": "Disable Slide",
+            "Description": [
+              "Disables the slide.",
+              "(Default : True)"
+            ],
+            "Type": "bool",
+            "MinValue": null,
+            "MaxValue": null,
+            "DefaultValue": true
+
+          }
+        ]
+      }
+   ],
+   "IniFile": "config.ini"
+}

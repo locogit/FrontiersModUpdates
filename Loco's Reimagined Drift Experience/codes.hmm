@@ -1,0 +1,408 @@
+Code "Allow Drift in Open Zone & Cyberspace" in "Gameplay" by "Locomotivesss" does "Hold B while moving quickly to drift, if you release B while boosting, you'll transition into a spindash." 
+//
+    #lib "Time"
+    #lib "Sonic"
+    #lib "XInput"
+    #lib "MathHelpers"
+    #lib "Bitwise"
+    #lib "BlackboardStatus"
+	#lib "BlackboardItem"
+    #lib "HMM"
+    #lib "INI"
+
+    #include "ReflectionHelpers" noemit
+    #lib "SonicParameters"
+
+    #load "System.Numerics.dll"
+    #load "System.Numerics.Vectors.dll"
+    #load "System.Runtime.dll"
+    #load "PresentationCore.dll"
+    #load "PresentationFramework.dll"
+    #load "WindowsBase.dll"
+    #load "System.Windows.Forms.dll"
+
+    using System;
+    using System.Numerics;
+    using System.Collections.Generic;
+    using System.Media;
+    using System.Windows.Media;
+    using System.IO;
+    using System.Windows.Forms;
+    
+    static float heldTime = 0.0f;
+    static float runMag = 0;
+    static bool isCyber = false;
+    static bool wasDrift = false;
+    static bool init = false;
+
+    static List<Sonic.StateID> DriftStates = new(){
+        Sonic.StateID.StateRun,
+        Sonic.StateID.StateSliding,
+        Sonic.StateID.StateDropDash,
+        Sonic.StateID.StateSpinBoost,
+        Sonic.StateID.StateQuickStep,
+        Sonic.StateID.StateQuickStepLeft,
+        Sonic.StateID.StateQuickStepRight
+    };
+
+    static List<Sonic.StateID> DriftExitHitStates = new(){
+        Sonic.StateID.StateDropDash,
+        Sonic.StateID.StateSpinBoostCharge
+    }
+
+    static bool IsStickSide() {
+        if (XInput.GetState() == null) {
+            return true;
+        }
+
+        Vector2 LeftStick = XInput.GetAnalog(0, true);
+        if (Math.Abs(LeftStick.X) >= 0.25f && Math.Abs(LeftStick.Y) >= 0.25f) {
+            return true;
+        }
+        else {
+            return false;
+        }
+    }
+
+    static Dictionary<string, float> paramTight = new Dictionary<string, float>
+    {
+        {"startAngle", 35.0f},
+        {"endSpeed", 5.0f},
+        {"minSpeed", 20.0f},
+        {"minSpeedMax", 30.0f},
+        {"maxSpeed", 35.0f},
+        {"maxSpeedMax", 40.0f},
+        {"minBoostSpeed", 25.0f},
+        {"minBoostSpeedMax", 30.0f},
+        {"maxBoostSpeed", 35.0f},
+        {"maxBoostSpeedMax", 40.0f},
+        {"accel", 15.0f},
+        {"brake", 20.0f},
+        {"maxSteerAngle", 50.0f},
+        {"steerAccel", 780.0f},
+        {"maxSteerSpeed", 190.0f},
+        {"neutralSteerAccel", 700.0f},
+        {"maxNeutralSteerSpeed", 200.0f},
+        {"maxRotateSpeed", 180.0f},
+        {"recoverTime", 0.5f},
+        {"maxChargeTime", 1.5f},
+        {"minDashSpeed", 35.0f},
+        {"maxDashSpeed", 25.0f},
+        {"minDashJumpSpeed", 15.0f},
+        {"maxDashJumpSpeed", 35.0f},
+        {"jumpSpeed", 10.0f},
+        {"checkFallTime", 2.0f}
+    };
+
+    static Dictionary<string, float> paramSU = new Dictionary<string, float>
+    {
+        {"startAngle", 20.0f},
+        {"endSpeed", 5.0f},
+        {"minSpeed", 20.0f},
+        {"minSpeedMax", 40.0f},
+        {"maxSpeed", 20.0f},
+        {"maxSpeedMax", 40.0f},
+        {"minBoostSpeed", 30.0f},
+        {"minBoostSpeedMax", 60.0f},
+        {"maxBoostSpeed", 30.0f},
+        {"maxBoostSpeedMax", 60.0f},
+        {"accel", 15.0f},
+        {"brake", 15.0f},
+        {"maxSteerAngle", 45.0f},
+        {"steerAccel", 720.0f},
+        {"maxSteerSpeed", 180.0f},
+        {"neutralSteerAccel", 720.0f},
+        {"maxNeutralSteerSpeed", 180.0f},
+        {"maxRotateSpeed", 150.0f},
+        {"recoverTime", 0.5f},
+        {"maxChargeTime", 1.5f},
+        {"minDashSpeed", 20.0f},
+        {"maxDashSpeed", 20.0f},
+        {"minDashJumpSpeed", 10.0f},
+        {"maxDashJumpSpeed", 20.0f},
+        {"jumpSpeed", 10.0f},
+        {"checkFallTime", 2.0f}
+    };
+
+    static void ChangeDriftParam() {
+        var SonicParametersInfo = Reflection.GetDataInfo<SonicParameters.Root>("player_common");
+
+	    if (SonicParametersInfo.pData == null)
+		    return;
+        
+        float amount = XInput.GetTrigger(0);
+
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.startAngle, MathHelpers.Lerp(paramSU["startAngle"], paramTight["startAngle"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.endSpeed, MathHelpers.Lerp(paramSU["endSpeed"], paramTight["endSpeed"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.minSpeed, MathHelpers.Lerp(paramSU["minSpeed"], paramTight["minSpeed"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.minSpeedMax, MathHelpers.Lerp(paramSU["minSpeedMax"], paramTight["minSpeedMax"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.maxSpeed, MathHelpers.Lerp(paramSU["maxSpeed"], paramTight["maxSpeed"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.maxSpeedMax, MathHelpers.Lerp(paramSU["maxSpeedMax"], paramTight["maxSpeedMax"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.minBoostSpeed, MathHelpers.Lerp(paramSU["minBoostSpeed"], paramTight["minBoostSpeed"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.minBoostSpeedMax, MathHelpers.Lerp(paramSU["minBoostSpeedMax"], paramTight["minBoostSpeedMax"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.maxBoostSpeed, MathHelpers.Lerp(paramSU["maxBoostSpeed"], paramTight["maxBoostSpeed"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.maxBoostSpeedMax, MathHelpers.Lerp(paramSU["maxBoostSpeedMax"], paramTight["maxBoostSpeedMax"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.accel, MathHelpers.Lerp(paramSU["accel"], paramTight["accel"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.brake, MathHelpers.Lerp(paramSU["brake"], paramTight["brake"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.maxSteerAngle, MathHelpers.Lerp(paramSU["maxSteerAngle"], paramTight["maxSteerAngle"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.steerAccel, MathHelpers.Lerp(paramSU["steerAccel"], paramTight["steerAccel"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.maxSteerSpeed, MathHelpers.Lerp(paramSU["maxSteerSpeed"], paramTight["maxSteerSpeed"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.neutralSteerAccel, MathHelpers.Lerp(paramSU["neutralSteerAccel"], paramTight["neutralSteerAccel"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.maxNeutralSteerSpeed, MathHelpers.Lerp(paramSU["maxNeutralSteerSpeed"], paramTight["maxNeutralSteerSpeed"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.maxRotateSpeed, MathHelpers.Lerp(paramSU["maxRotateSpeed"], paramTight["maxRotateSpeed"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.recoverTime, MathHelpers.Lerp(paramSU["recoverTime"], paramTight["recoverTime"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.maxChargeTime, MathHelpers.Lerp(paramSU["maxChargeTime"], paramTight["maxChargeTime"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.minDashSpeed, MathHelpers.Lerp(paramSU["minDashSpeed"], paramTight["maxDashSpeed"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.maxDashSpeed, MathHelpers.Lerp(paramSU["maxDashSpeed"], paramTight["maxDashSpeed"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.minDashJumpSpeed, MathHelpers.Lerp(paramSU["minDashJumpSpeed"], paramTight["minDashJumpSpeed"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.maxDashJumpSpeed, MathHelpers.Lerp(paramSU["maxDashJumpSpeed"], paramTight["maxDashJumpSpeed"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.jumpSpeed, MathHelpers.Lerp(paramSU["jumpSpeed"], paramTight["jumpSpeed"], amount));
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, drift.checkFallTime, MathHelpers.Lerp(paramSU["checkFallTime"], paramTight["checkFallTime"], amount));
+    }
+
+    const string ModFolderName = "Loco's Reimagined Drift Experience";
+
+    static string GetModPath() {
+        // Reads the user's current mod profile INI
+        var modsDb = HMM.GetModsDatabase();
+        string modIniPath = string.Empty;
+
+        // Traverses the mod profile INI to find our mod
+        foreach (var entry in modsDb["Mods"])
+        {
+            if (entry.Value.Contains(ModFolderName))
+            {
+                // Found our mod, so store the path to its mod.ini in modIniPath
+                modIniPath = entry.Value;
+            }
+        }
+
+        // Ensure mod.ini exists (it always should)
+        if (!File.Exists(modIniPath)) {
+            MessageBox.Show("Couldn't Find Mold Folder!", "Error", MessageBoxButtons.OK);
+            System.Environment.Exit(1);
+            return "";
+        }
+        // Get the path to mod.ini
+        string modPath = Path.GetDirectoryName(modIniPath);
+        return modPath;
+    }
+
+    static Dictionary<string, Dictionary<string, string>> GetModINI() {   
+        // Get the path to mod.ini
+        string modPath = GetModPath();
+
+        // Get the path to our mod config INI
+        string configIniPath = Path.Combine(modPath, "config.ini");
+
+        if (!File.Exists(configIniPath)) {
+            MessageBox.Show("Couldn't Find INI File!", "Error", MessageBoxButtons.OK);
+            System.Environment.Exit(1);
+            return new Dictionary<string, Dictionary<string, string>>();
+        }
+
+        /* If you intend to store your config params in mod.ini, change configIniPath here
+        to modIniPath and remove the previous code until the File.Exists(modIniPath) condition */
+        return INI.Read(configIniPath);
+    }
+
+    static MediaPlayer sound = new MediaPlayer();
+    static bool soundLoaded = false;
+
+    static float rollSpeed = 20.0f;
+    static float enterSpeed = 7.0f;
+//
+{
+    ChangeDriftParam();
+    if (BlackboardStatus.Get() == 0 || BlackboardItem.Get() == 0)
+    {
+        return;
+    }
+
+    if (BlackboardStatus.IsSuper()) {
+        sound.Pause();
+        Sonic.State.Restore(Sonic.StateID.StateSliding);
+        return;
+    }
+
+    var kinematics = Sonic.Kinematics.Get();
+    if (kinematics == null)
+    {
+        return;
+    }
+
+    void SoundOpened(object sender, EventArgs e) {
+        soundLoaded = true;
+    }
+
+    if (!init) {
+        init = true;
+        sound.Open(new Uri(Path.Combine(GetModPath(), GetModINI()["Main"]["soundName"])));
+        sound.MediaOpened += new EventHandler(SoundOpened);
+        sound.Volume = 0.0;
+    }
+
+    sound.Play();
+
+    Sonic.StateID state = Sonic.State.GetCurrentStateID();
+    Sonic.StateID previousState = Sonic.State.GetPreviousStateID();
+
+	isCyber = Bitwise.Test(*BlackboardStatus.GetWorldFlags(), (uint)BlackboardStatus.WorldFlags.IsCyberSpace);
+
+    if (soundLoaded) {
+        if (sound.Position.TotalSeconds >= sound.NaturalDuration.TimeSpan.TotalSeconds - 0.024) {
+            sound.Position = TimeSpan.Zero;
+        }
+        if (state == Sonic.StateID.StateDrift) {
+            sound.Volume = (double)MathHelpers.Clamp(MathHelpers.Lerp((float)sound.Volume, float.Parse(GetModINI()["Main"]["soundVolume"]) / 100.0f, Time.GetDeltaTime() * 8.0f), 0, 1);
+        }
+        else {
+            sound.Volume = (double)MathHelpers.Clamp(MathHelpers.Lerp((float)sound.Volume, 0.0f, Time.GetDeltaTime() * 8.0f), 0, 1);
+        }
+    }
+
+    if (Sonic.IsSideView())
+    {
+        Sonic.State.Restore(Sonic.StateID.StateSliding);
+        if (state == Sonic.StateID.StateDrift) {
+            if (Sonic.Input.IsDown(Sonic.PlayerActionType.PlayerBoost)) {
+                Sonic.State.SetState(Sonic.StateID.StateDropDash);
+            }
+            else {
+                Sonic.StateID exitSpindashState = (Sonic.Kinematics.GetHorizontalMagnitude() >= rollSpeed ? Sonic.StateID.StateSpringJumpHeadLand : Sonic.StateID.StateRun)
+                Sonic.State.SetState(exitSpindashState);
+            }
+        }
+        return;
+    }
+
+    if (Boolean.Parse(GetModINI()["Main"]["slideDisable"])) {
+        Sonic.State.Discard(Sonic.StateID.StateSliding);
+    }
+    else {
+        Sonic.State.Restore(Sonic.StateID.StateSliding);
+    }
+
+    if (state == Sonic.StateID.StateDrift) {
+        Sonic.Collision.SetCollisionSphere(Sonic.CollisionType.Damage, 3.0f);
+        Sonic.Collision.ToggleEntityCollision(false);
+        wasDrift = true;
+        XInput.SetVibration(7.0f);
+    }
+    else if (wasDrift) {
+        if (!DriftExitHitStates.Contains(state)) {
+            Sonic.Collision.SetCollisionSphere(Sonic.CollisionType.Default, 1.0f);
+            Sonic.Collision.ToggleEntityCollision(true);
+        }
+        wasDrift = false;
+        XInput.SetVibration(0.0f);
+    }
+
+    if (Sonic.IsGrounded()) 
+    {
+        if (state == Sonic.StateID.StateRun)
+        {
+            runMag = Sonic.Kinematics.GetHorizontalMagnitude();
+        }
+
+        if (Sonic.Input.IsDown(Sonic.PlayerActionType.PlayerStomping))
+        {
+            heldTime += Time.GetDeltaTime();
+        }
+        else {
+            heldTime = 0.0f;
+        }
+
+        if (Sonic.Input.IsPressed(Sonic.PlayerActionType.PlayerJump) && state == Sonic.StateID.StateDrift) {
+            Sonic.State.SetState(Sonic.StateID.StateRun);
+        }
+
+        if (Sonic.Input.IsPressed(Sonic.PlayerActionType.PlayerAttack) && !isCyber && state == Sonic.StateID.StateDrift) {
+            Sonic.State.SetState(Sonic.StateID.StateAcceleCombo1);
+        }
+
+        if (heldTime >= 0.1f && Sonic.Input.IsDown(Sonic.PlayerActionType.PlayerStomping) && DriftStates.Contains(state) && runMag >= enterSpeed && IsStickSide())
+        {
+            Sonic.State.SetState(Sonic.StateID.StateDrift);
+        }
+        else if (!Sonic.Input.IsDown(Sonic.PlayerActionType.PlayerStomping) && state == Sonic.StateID.StateDrift)
+        {
+            if (Sonic.Input.IsDown(Sonic.PlayerActionType.PlayerBoost)) {
+                Sonic.State.SetState(Sonic.StateID.StateRun);
+            }
+            else if (Sonic.Input.IsDown(Sonic.PlayerActionType.PlayerSonicboom)) {
+                Sonic.State.SetState(Sonic.StateID.StateSpinBoostCharge);
+            }
+            else {
+                Sonic.StateID exitSpindashState = (Sonic.Kinematics.GetHorizontalMagnitude() >= rollSpeed ? Sonic.StateID.StateSpringJumpHeadLand : Sonic.StateID.StateRun)
+                Sonic.State.SetState(exitSpindashState);
+            }
+        }
+    }
+    else 
+    {
+        if (state == Sonic.StateID.StateDrift)
+        {
+            Sonic.State.SetState(Sonic.StateID.StateFall);
+        }
+    }
+}
+
+Patch "Disable Drift Dash Panels" in "Gameplay" by "Hyper" 
+{
+    WriteProtected<byte>
+    (
+        /* 0x140482A6E */
+        ScanSignature
+        (
+            "\x48\x8B\xC2\x48\x8B\xF9\x48\x8B\xC8\x48\x8D\x15\xCC\xCC\xCC\xCC\xE8\xCC\xCC\xCC\xCC\x4C\x8B\xF8\xE8\xCC\xCC\xCC\xCC\x48\x8B\xD0\x48\x8B\xCF\xE8\xCC\xCC\xCC\xCC\x4C\x8B\xE8",
+            "xxxxxxxxxxxx????x????xxxx????xxxxxxx????xxx"
+        ),
+
+        0xE9, 0x24, 0x03, 0x00, 0x00
+    );
+}
+
+Patch "Hide Drift Dash Panels" in "Graphics" by "Hyper" does "Hides the drift dash panels, but still allows them to function, similarly to drift zones in Sonic Colours." 
+{
+    // Remove model.
+    WriteNop
+    (
+        /* 0x140432970 */
+        ScanSignature
+        (
+            "\x48\x89\x47\x38\x48\x8D\x1D\x00\x00\x00\x00",
+            "xxxxxxx????"
+        ),
+
+        4
+    );
+
+    // Remove sound.
+    WriteNop
+    (
+        /* 0x140432AEC */
+        ScanSignature
+        (
+            "\xE8\x00\x00\x00\x00\x48\x8D\x4C\x24\x00\xE8\x00\x00\x00\x00\xB0\x01\x48\x81\xC4\x00\x00\x00\x00\x5E",
+            "x????xxxx?x????xxxxx????x"
+        ),
+
+        5
+    );
+}
+
+Patch "Hide Drift Input Prompt" in "UI" by "Hyper" does "Hides the input prompt that covers up Sonic when using drift dash panels." 
+{
+    WriteNop
+    (
+        /* 0x14081E868 */
+        ScanSignature
+        (
+            "\xE8\x00\x00\x00\x00\x48\x8D\x4C\x24\x00\xE8\x00\x00\x00\x00\x4C\x8D\x05\x00\x00\x00\x00\x48\x8B\xD6\x48\x8D\x8C\x24\x00\x00\x00\x00\xE8\x00\x00\x00\x00\x48\x8D\x8D\x00\x00\x00\x00\x48\x8B\xD0\xE8\x00\x00\x00\x00\x41\xB0\x01\xBA\x00\x00\x00\x00\x48\x8B\xCE\xE8\x00\x00\x00\x00\xBA\x00\x00\x00\x00\x48\x8B\xCE\xE8\x00\x00\x00\x00\xB2\x01\x48\x8B\xCE\x48\x8B\x9C\x24\x00\x00\x00\x00\x48\x81\xC4\x00\x00\x00\x00\x41\x5E\x5E\x5D\xE9\x00\x00\x00\x00",
+            "x????xxxx?x????xxx????xxxxxxx????x????xxx????xxxx????xxxx????xxxx????x????xxxx????xxxxxxxxx????xxx????xxxxx????"
+        ),
+
+        5
+    );
+}
