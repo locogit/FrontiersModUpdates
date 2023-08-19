@@ -287,7 +287,7 @@ Code "Allow Drift in Open Zone & Cyberspace" in "Gameplay" by "Locomotivesss" do
         Sonic.Collision.SetCollisionSphere(Sonic.CollisionType.Damage, 3.0f);
         Sonic.Collision.ToggleEntityCollision(false);
         wasDrift = true;
-        XInput.SetVibration(7.0f);
+        XInput.SetVibration(0, 0.15f);
     }
     else if (wasDrift) {
         if (!DriftExitHitStates.Contains(state)) {
