@@ -1,3 +1,6 @@
+## Sonic Unleashed Sweepkick v1.04
+- Fixed Movement Issue Issue
+
 ## Sonic Unleashed Sweepkick v1.03
 - Fixed Movement Issue
 

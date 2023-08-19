@@ -260,6 +260,7 @@ Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Do
             sweepkickTimer -= Time.GetDeltaTime();
         }
         else {
+            *kinematics.Velocity = Vector3.Zero;
             CancelSweepkick(false);
             pressCount = 0;
         }
