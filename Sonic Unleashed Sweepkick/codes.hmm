@@ -189,7 +189,7 @@ Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Do
     {
         sweepkickTimer = sweepkickActiveTime;
         sweepkickHitboxTimer = sweepkickHitboxActiveTime;
-        sweepkickVelocity = new Vector3(kinematics.Velocity->X, kinematics.Velocity->Y, kinematics.Velocity->Z);
+        sweepkickVelocity = *kinematics.Velocity;
         pressCount = 0;
         isSweepkick = true;
         sweepkickHitbox = true;
@@ -252,7 +252,8 @@ Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Do
         if (Sonic.Kinematics.GetHorizontalMagnitude() < sweepkickVelocity.Length() * 0.2f) {
             *kinematics.Velocity += Sonic.Kinematics.GetForward() * sweepkickVelocity.Length();
         }
-        *kinematics.Velocity *= 1.0f - Time.GetDeltaTime() * 1.9f;
+        float mult = 1.0f - Time.GetDeltaTime() * 1.9f;
+        *kinematics.Velocity *= mult < 0.0f ? 0.0f : mult;
 
         if (sweepkickTimer > 0) 
         {

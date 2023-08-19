@@ -1,3 +1,6 @@
+## Sonic Unleashed Sweepkick v1.03
+- Fixed Movement Issue
+
 ## Sonic Unleashed Sweepkick v1.02
 - Increased Damage Radius
 - Increased Cancel Timer
