@@ -19,6 +19,7 @@ Code "Allow Drift in Open Zone & Cyberspace" in "Gameplay" by "Locomotivesss" do
     #lib "INI"
 
     #include "Reflection" noemit
+    #lib "Reflection"
     #lib "SonicParameters"
 
     #load "System.Numerics.dll"
