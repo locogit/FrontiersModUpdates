@@ -1,0 +1,69 @@
+Code "Manual Air Trick" in "Gameplay" by "Locomotivesss" does "Makes Sonic go into the airtrick state when falling for a while and tapping Y." 
+//
+    using System.Collections.Generic;
+    
+    #lib "Sonic"
+    #lib "Player"
+    #lib "Time"
+    #include "BlackboardStatus" noemit
+
+    #load "System.Runtime.dll"  
+
+	static float timeAirborne = 0.0f;
+
+    static List<Sonic.StateID> TrickEnterStates = new()
+    {
+        Sonic.StateID.StateFall,
+        Sonic.StateID.StateJump,
+        Sonic.StateID.StateDoubleJump,
+        Sonic.StateID.StateGrindJump,
+        Sonic.StateID.StateGrindDoubleJump,
+        Sonic.StateID.StateDropDash,
+        Sonic.StateID.StateSpinBoost,
+        Sonic.StateID.StateSpinBoostCharge,
+        Sonic.StateID.StateSpinMove,
+        Sonic.StateID.StateAvoid,
+        Sonic.StateID.StateHangPoleJump,
+        Sonic.StateID.StateJumpBoardLaunch,
+        Sonic.StateID.StateLightDash,
+        Sonic.StateID.StateDamageLava,
+        Sonic.StateID.StateCloudJump,
+        Sonic.StateID.StateAirBoost,
+        Sonic.StateID.StateStandRoot,
+        Sonic.StateID.StateRun,
+        Sonic.StateID.StateFallFlip,
+        Sonic.StateID.StateHomingAttack,
+        Sonic.StateID.StateSpringJump
+    };
+
+    static bool IsGroundedSpecial() {
+        if (BlackboardStatus.Get() == null) {
+            return true;
+        }
+        
+        return Player.Status.IsGrounded() || IS_STATE_FLAG(IsGrind) || IS_STATE_FLAG(IsWallClimb);
+    }
+//
+{
+    if (Player.GetPlayerType() != Player.PlayerType.Sonic) {
+        return;
+    }
+
+    if (BlackboardStatus.Get() == null) {
+        return;
+    }
+
+    Sonic.StateID state = Player.State.GetCurrentStateID<Sonic.StateID>();
+    Sonic.StateID prevState = Player.State.GetPreviousStateID<Sonic.StateID>();
+
+    if (!IsGroundedSpecial() && TrickEnterStates.Contains(state)) {
+        timeAirborne += Time.GetDeltaTime();
+    }
+    else {
+        timeAirborne = 0.0f;
+    }
+
+    if (timeAirborne >= 0.5f && TrickEnterStates.Contains(state) && Player.Input.IsDown(Player.InputActionType.PlayerCyloop)) {
+        Player.State.SetState(Sonic.StateID.StateBumpJump);
+    }
+}

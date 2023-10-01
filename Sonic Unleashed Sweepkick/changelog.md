@@ -1,3 +1,6 @@
+## Sonic Unleashed Sweepkick v1.05
+- Final Horizon Fix
+
 ## Sonic Unleashed Sweepkick v1.04
 - Fixed Movement Issue Issue
 

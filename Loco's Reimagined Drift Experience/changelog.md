@@ -1,3 +1,6 @@
+## Loco's Reimagined Drift Experience v1.03
+- Final Horizon Fix
+
 ## Loco's Reimagined Drift Experience v1.02
 - Reduced Vibration
 

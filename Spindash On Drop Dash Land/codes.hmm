@@ -1,6 +1,8 @@
 Code "Spindash On Drop Dash Land" in "Gameplay" by "Locomotivesss" does "When landing from a dropdash, use the spindash state." 
 //
     #lib "Sonic"
+    #lib "Player"
+
     #load "System.Runtime.dll"
     #load "System.Numerics.dll"
 
@@ -14,13 +16,17 @@ Code "Spindash On Drop Dash Land" in "Gameplay" by "Locomotivesss" does "When la
     };
 //
 {
-    Sonic.StateID state = Sonic.State.GetCurrentStateID();
-    Sonic.StateID previousState = Sonic.State.GetPreviousStateID();
+    if (Player.GetPlayerType() != Player.PlayerType.Sonic) {
+        return;
+    }
+
+    Sonic.StateID state = Player.State.GetCurrentStateID<Sonic.StateID>();
+    Sonic.StateID previousState = Player.State.GetPreviousStateID<Sonic.StateID>();
 
     if (PrevStates.Contains(state) || PrevStates.Contains(previousState)) {
-        Sonic.State.Redirect(Sonic.StateID.StateDropDash, Sonic.StateID.StateSpinBoost);
+        Player.State.Redirect<Sonic.StateID>(Sonic.StateID.StateDropDash, Sonic.StateID.StateSpinBoost);
     }
     else {
-        Sonic.State.Restore(Sonic.StateID.StateDropDash);
+        Player.State.Restore<Sonic.StateID>(Sonic.StateID.StateDropDash);
     }
 }

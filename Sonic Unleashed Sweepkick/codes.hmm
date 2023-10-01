@@ -1,9 +1,17 @@
 Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Double tap b in quick sucession to perform the sweepkick" 
 //
+    using System;
+    using System.Numerics;
+    using System.Collections.Generic;
+    using System.Media;
+    using System.Windows.Media;
+    using System.IO;
+    using System.Windows.Forms;
+
     #lib "Time"
     #lib "Sonic"
-    #lib "Bitwise"
-    #lib "BlackboardStatus"
+    #lib "Player"
+    #include "BlackboardStatus" noemit
 	#lib "BlackboardItem"
     #lib "HMM"
     #lib "INI"
@@ -15,14 +23,6 @@ Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Do
     #load "PresentationFramework.dll"
     #load "WindowsBase.dll"
     #load "System.Windows.Forms.dll"
-
-    using System;
-    using System.Numerics;
-    using System.Collections.Generic;
-    using System.Media;
-    using System.Windows.Media;
-    using System.IO;
-    using System.Windows.Forms;
 
     static float sweepkickParticleTime = 0.3f;
     static float sweepkickCancelTime = 0.3f;
@@ -72,7 +72,7 @@ Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Do
         isSweepkick = false;
         sweepkickHitbox = false;
         if (effect) {
-            Sonic.Effect.StopEffect("sweepkick");
+            Player.Effect.StopEffect("sweepkick");
         }
     }
 
@@ -130,7 +130,11 @@ Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Do
     }
 //
 {
-    if (BlackboardStatus.Get() == 0 || BlackboardItem.Get() == 0)
+    if (Player.GetPlayerType() != Player.PlayerType.Sonic) {
+        return;
+    }
+
+    if (BlackboardStatus.Get() == null || BlackboardItem.Get() == null)
     {
         return;
     }
@@ -139,7 +143,7 @@ Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Do
         return;
     }
 
-    isCyber = Bitwise.Test(*BlackboardStatus.GetWorldFlags(), (uint)BlackboardStatus.WorldFlags.IsCyberSpace);
+    isCyber = IS_WORLD_FLAG(IsCyberSpace);
 
     if (!init)
     {
@@ -150,15 +154,15 @@ Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Do
     voice.Volume = double.Parse(GetModINI()["Main"]["voiceVolume"]) / 100.0;
     voiceChance = int.Parse(GetModINI()["Main"]["voiceRandomness"]);
     
-    Sonic.StateID state = Sonic.State.GetCurrentStateID();
-    Sonic.StateID previousState = Sonic.State.GetPreviousStateID();
+    Sonic.StateID state = Player.State.GetCurrentStateID<Sonic.StateID>();
+    Sonic.StateID previousState = Player.State.GetPreviousStateID<Sonic.StateID>();
 
-    var kinematics = Sonic.Kinematics.Get();
+    var kinematics = Player.Kinematics.Get();
 
     if (kinematics == null)
         return;
 
-    if (Sonic.Input.IsPressed(Sonic.PlayerActionType.PlayerStomping) && SweepkickStates.Contains(state) && !isSweepkick)
+    if (Player.Input.IsPressed(Player.InputActionType.PlayerStomping) && SweepkickStates.Contains(state) && !isSweepkick)
     {
         pressCount++;
         lastPressTime = inputTime;
@@ -169,12 +173,12 @@ Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Do
         pressCount = 0;
     }
 
-    if (!Sonic.IsGrounded() && isSweepkick) {
+    if (!Player.Status.IsGrounded() && isSweepkick) {
         CancelSweepkick();
         pressCount = 0;
 
-        if (!Sonic.IsGroundedSpecial()) {
-            Sonic.State.SetState(Sonic.StateID.StateFall);
+        if (!Player.Status.IsGroundedSpecial()) {
+            Player.State.SetState(Sonic.StateID.StateFall);
         }
     }
 
@@ -189,14 +193,14 @@ Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Do
     {
         sweepkickTimer = sweepkickActiveTime;
         sweepkickHitboxTimer = sweepkickHitboxActiveTime;
-        sweepkickVelocity = *kinematics.Velocity;
+        sweepkickVelocity = kinematics->Velocity;
         pressCount = 0;
         isSweepkick = true;
         sweepkickHitbox = true;
         sweepkickParticleTimer = sweepkickParticleTime;
-        Sonic.State.SetState(Sonic.StateID.StateKickBox)
-        Sonic.Effect.PlayEffect("sweepkick", "ef_so_cyloop_slash_hit01");
-        Sonic.Animation.SetAnimation(sweepkickActiveAnim);
+        Player.State.SetState(Sonic.StateID.StateKickBox)
+        Player.Effect.PlayEffect("sweepkick", "ef_so_cyloop_slash_hit01");
+        Player.Animation.SetAnimation(sweepkickActiveAnim);
 
         sound.Open(new Uri(Path.Combine(GetModPath(), GetModINI()["Main"]["soundName"])));
         sound.Position = new TimeSpan(0);
@@ -217,50 +221,50 @@ Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Do
         }
         else {
             sweepkickParticleTimer = -1.0f;
-            Sonic.Effect.StopEffect("sweepkick");
+            Player.Effect.StopEffect("sweepkick");
         }
     }
 
     if (isSweepkick)
     {
-        if ((Sonic.Input.IsDown(Sonic.PlayerActionType.PlayerLeftStep) || Sonic.Input.IsDown(Sonic.PlayerActionType.PlayerRightStep)) && CanManualExit())
+        if ((Player.Input.IsDown(Player.InputActionType.PlayerLeftStep) || Player.Input.IsDown(Player.InputActionType.PlayerRightStep)) && CanManualExit())
         {
             CancelSweepkick();
-            Sonic.State.SetState(Sonic.StateID.StateQuickStep);
+            Player.State.SetState(Sonic.StateID.StateQuickStep);
         }
 
-        if (Sonic.Input.IsPressed(Sonic.PlayerActionType.PlayerAttack) && !isCyber) {
+        if (Player.Input.IsPressed(Player.InputActionType.PlayerAttack) && !isCyber) {
             CancelSweepkick();
-            Sonic.State.SetState(Sonic.StateID.StateAcceleCombo2);
+            Player.State.SetState(Sonic.StateID.StateAcceleCombo2);
         }
         
-        if (Sonic.Input.IsPressed(Sonic.PlayerActionType.PlayerJump) && CanManualExit()) {
+        if (Player.Input.IsPressed(Player.InputActionType.PlayerJump) && CanManualExit()) {
             CancelSweepkick();
-            Sonic.State.SetState(Sonic.StateID.StateRun);
+            Player.State.SetState(Sonic.StateID.StateRun);
         }
 
-        if (Sonic.Input.IsDown(Sonic.PlayerActionType.PlayerBoost) && CanManualExit()) {
+        if (Player.Input.IsDown(Player.InputActionType.PlayerBoost) && CanManualExit()) {
             CancelSweepkick();
-            Sonic.State.SetState(Sonic.StateID.StateStandRoot);
+            Player.State.SetState(Sonic.StateID.StateStandRoot);
         }
 
-        if (Sonic.Input.IsDown(Sonic.PlayerActionType.PlayerSonicboom) && CanManualExit()) {
+        if (Player.Input.IsDown(Player.InputActionType.PlayerSonicboom) && CanManualExit()) {
             CancelSweepkick();
-            Sonic.State.SetState(Sonic.StateID.StateSpinBoost);
+            Player.State.SetState(Sonic.StateID.StateSpinBoost);
         }
 
-        if (Sonic.Kinematics.GetHorizontalMagnitude() < sweepkickVelocity.Length() * 0.2f) {
-            *kinematics.Velocity += Sonic.Kinematics.GetForward() * sweepkickVelocity.Length();
+        if (Player.Kinematics.GetHorizontalMagnitude() < sweepkickVelocity.Length() * 0.2f) {
+            kinematics->Velocity += Player.Kinematics.GetForward() * sweepkickVelocity.Length();
         }
         float mult = 1.0f - Time.GetDeltaTime() * 1.9f;
-        *kinematics.Velocity *= mult < 0.0f ? 0.0f : mult;
+        kinematics->Velocity *= mult < 0.0f ? 0.0f : mult;
 
         if (sweepkickTimer > 0) 
         {
             sweepkickTimer -= Time.GetDeltaTime();
         }
         else {
-            *kinematics.Velocity = Vector3.Zero;
+            kinematics->Velocity = Vector3.Zero;
             CancelSweepkick(false);
             pressCount = 0;
         }
@@ -277,14 +281,15 @@ Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Do
         }
     }
 
-    void NotifyStateSweepkickExit(Sonic.StateID stateId, Sonic.StateID[] stateStackTrace)
+    Sonic.StateID NotifyStateSweepkickExit(Sonic.StateID stateId, Sonic.StateID[] stateStackTrace)
     {
         if (stateId == Sonic.StateID.StateJumpBoardLaunch && isSweepkick) {
             CancelSweepkick();
         }
+        return stateId;
     }
 
-    Sonic.State.AddStateNotifyAction(NotifyStateSweepkickExit);
+    Player.State.AddStateNotifyAction<Sonic.StateID>(NotifyStateSweepkickExit);
 
     if (sweepkickHitboxTimer > 0)
     {
@@ -296,14 +301,14 @@ Code "Sonic Unleashed Style Sweepkick" in "Gameplay" by "Locomotivesss" does "Do
 
     if (sweepkickHitbox)
     {
-        Sonic.Collision.SetCollisionSphere(Sonic.CollisionType.Damage, 4.0f);
-        Sonic.Collision.ToggleEntityCollision(false);
+        Player.Collision.SetCollisionSphere(Player.CollisionType.Damage, 4.0f);
+        Player.Collision.SetEntityCollision(false);
         wasSweepkickHitbox = true;
     }         
     else if (wasSweepkickHitbox)
     {
-        Sonic.Collision.SetCollisionSphere(Sonic.CollisionType.Default, 1.0f);
-        Sonic.Collision.ToggleEntityCollision(true);
+        Player.Collision.SetCollisionSphere(Player.CollisionType.Default, 1.0f);
+        Player.Collision.SetEntityCollision(true);
         wasSweepkickHitbox = false;
     }
 }
