@@ -1,12 +1,17 @@
 Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces the slide with a roll." 
 //
     #lib "Player"
+
     #lib "Time"
+
     #lib "MathHelpers"
     #lib "VectorHelpers"
+
     #include "Reflection" noemit
     #lib "Reflection"
     #lib "SonicParameters"
+
+    #include "BlackboardStatus" noemit
 
     #load "System.Numerics.dll"
 
@@ -15,12 +20,14 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
 
     static bool ballAnim = false;
 
+    const float ROLL_DOWN_SPEED = 1.75f;
+
     static float rollBallTimer = 0.0f;
     static float rollTime = 0.0f;
     static bool rollBallTimerActive = false;
-    const float ROLL_DOWN_SPEED = 1.75f;
     static float rollDownMult = 1.0f;
     static bool exitRollJump = false;
+    static bool exitRollJumpSelector = false;
 
     static float downMomentum = 0.0f;
 
@@ -33,7 +40,8 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
         Sonic.StateID.StateSpinBoostCharge,
         Sonic.StateID.StateSpinBoost,
         Sonic.StateID.StateDoubleJump,
-        Sonic.StateID.StateBallMove
+        Sonic.StateID.StateBallMove,
+        Sonic.StateID.StateHoldStand
     };
 
     static List<string> voiceClips = new(){
@@ -66,6 +74,8 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
     
     float minSpeed = MathHelpers.Clamp(Player.Kinematics.GetHorizontalMagnitude(), 10.0f, 100.0f);
 
+    bool isCyber = IS_WORLD_FLAG(IsCyberSpace);
+
     RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, modePackage.sliding.minSpeed, (Player.Status.IsSideView() ? minSpeed : minSpeed * 0.75f));
     RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, modePackage.sliding.endSpeed, (Player.Status.IsSideView() ? 6.0f : 9.0f));
 
@@ -81,9 +91,9 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
 
     RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, modePackage.common.slidingMaxSlope, 360.0f);
     RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, modePackage.sliding.movableMaxSlope, 360.0f);
-    
+
     if (Player.Status.IsGrounded()) {
-        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, modePackage.sliding.gravitySize, 40.0f * rollDownMult);
+        RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, modePackage.sliding.gravitySize, (isCyber ? 80.0f : 40.0f) * rollDownMult);
     }
     else {
         RFL_SET_CONTEXTUAL_PLAYER_PARAM(SonicParametersInfo, modePackage.sliding.gravitySize, 1.0f);
@@ -107,6 +117,7 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
 
     if (state == Sonic.StateID.StateSliding) {
         exitRollJump = false;
+        exitRollJumpSelector = false;
         rollTime += Time.GetDeltaTime();
         rollVelocity = kinematics->Velocity;
         
@@ -139,8 +150,14 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
     else if(state != Sonic.StateID.StateSliding && ballAnim) {
         rollBallTimerActive = false;
         if (!BallStates.Contains(state))
-            Player.Effect.StopAnimationEffects();
+            Player.Effect.StopAnimationEffects();   
         ballAnim = false;
+        exitRollJumpSelector = (state == Sonic.StateID.StateHoldStand);
+    }
+
+    if (prevState == Sonic.StateID.StateHoldStand && state == Sonic.StateID.StateSpringJump && exitRollJumpSelector) {
+        Player.Effect.StopAnimationEffects();
+        exitRollJumpSelector = false;
     }
 
     if (state == Sonic.StateID.StateJump && prevState == Sonic.StateID.StateSliding && !exitRollJump) {
