@@ -1,0 +1,73 @@
+{
+  "Groups": [
+    {
+      "Name": "Input",
+      "DisplayName": "Input Settings",
+      "Elements": [
+        {
+          "Name": "input_type",
+          "DisplayName": "Input Activation Type",
+          "Description": [
+            "(Default : Hold)"
+          ],
+          "Type": "InputTypeEnum",
+          "MinValue": null,
+          "MaxValue": null,
+          "DefaultValue": "hold"
+        }
+      ]
+    },
+    {
+      "Name": "Misc",
+      "DisplayName": "Miscellaneous Settings",
+      "Elements": [
+        {
+          "Name": "ball_stretch",
+          "DisplayName": "Stretchy Ball",
+          "Description": [
+            "(Default : True)"
+          ],
+          "Type": "bool",
+          "MinValue": null,
+          "MaxValue": null,
+          "DefaultValue": true
+        },
+        {
+          "Name": "ball_enabled",
+          "DisplayName": "Enable Ball",
+          "Description": [
+            "(Default : True)"
+          ],
+          "Type": "bool",
+          "MinValue": null,
+          "MaxValue": null,
+          "DefaultValue": true
+        },
+        {
+          "Name": "voice_enabled",
+          "DisplayName": "Enable Voice Clips",
+          "Description": [
+            "(Default : True)"
+          ],
+          "Type": "bool",
+          "MinValue": null,
+          "MaxValue": null,
+          "DefaultValue": true
+        }
+      ]
+    }
+  ],
+  "Enums": {
+    "InputTypeEnum": [
+      {
+        "DisplayName": "Hold",
+        "Value": "hold"
+      },
+      {
+        "DisplayName": "Tap",
+        "Value": "tap"
+      }
+    ]
+  },
+  "IniFile": "config.ini"
+}

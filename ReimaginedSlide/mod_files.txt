@@ -1,2 +1,14 @@
-add sonic.hmm
+delete sonic.hmm
+add src/amy.hmm
+add src/common.hmm
+add src/knuckles.hmm
+add src/sonic.hmm
+add src/tails.hmm
+add ReimaginedSlideTemplates/Amy.ini
+add ReimaginedSlideTemplates/Knuckles.ini
+add ReimaginedSlideTemplates/Sonic.ini
+add ReimaginedSlideTemplates/Tails.ini
+add raw/EffectFriendsCommon.pac
+add config.json
+add config.ini
 add mod.ini

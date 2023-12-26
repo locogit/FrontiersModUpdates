@@ -1,0 +1,427 @@
+Code "Roll Over Slide [Amy]" in "Gameplay" by "Locomotivesss" does "Replaces the slide with a roll." 
+//
+    #lib "Player"
+    #lib "Lua"
+    #lib "XInput"
+    
+    #lib "GameObject"
+    #import "GOComponents"
+
+    #lib "Time"
+
+    #lib "MathHelpers"
+    #lib "VectorHelpers"
+
+    #include "Reflection" noemit
+    #lib "Reflection"
+    #lib "AmyParameters"
+
+    #import "LRSParams"
+
+    #include "BlackboardStatus" noemit
+
+    #load "System.Numerics.dll"
+
+    using System.Numerics;
+    using System.Collections.Generic;
+
+    static bool ballAnim = false;
+
+    static float rollDownMult = 1.0f;
+
+    static bool exitRollJump = false;
+    static bool exitRollJumpSelector = false;
+
+    static float downMomentum = 0.0f;
+    static float startMomentum = 0.0f;
+
+    static float lastY = 0.0f;
+
+    static Vector3 rollVelocity;
+
+    static bool upSpeedAdded = false;
+
+    static bool exitAnim = false;
+
+    static bool canStickRoll = true;
+
+    static List<Amy.StateID> BallStates = new(){
+        Amy.StateID.StateJump,
+        Amy.StateID.StateSpin,
+        Amy.StateID.StateDropDash,
+        Amy.StateID.StateSpinBoostCharge,
+        Amy.StateID.StateSpinBoost,
+        Amy.StateID.StateDoubleJump,
+        Amy.StateID.StateBallMove,
+        Amy.StateID.StateHoldStand
+    };
+
+    static List<Amy.StateID> EnterSlideStates = new(){
+        Amy.StateID.StateStand,
+        Amy.StateID.StateStandRoot,
+        Amy.StateID.StateRun
+    };
+
+    static List<string> voiceClips = new(){
+        "aa1112",
+        "sa1038",
+        "sa1036",
+        "sa1026",
+        "sa1033"
+    };
+
+    static string GetVoiceClip() {
+        Random rnd = new Random();
+        return voiceClips[rnd.Next(voiceClips.Count)]
+    };
+
+    static bool bHeld = false;
+
+    // sure do love when the reflection data returns null every single time i load into frontiers
+    var AmyParametersInfo = Reflection.GetDataInfo<AmyParameters.Root>("amy_common");
+//
+{
+    if (Player.GetPlayerType() != Player.PlayerType.Amy)
+        return;
+
+    var kinematics = Player.Kinematics.Get();
+    if (kinematics == null)
+        return;
+    
+    Amy.StateID state = Player.State.GetCurrentStateID<Amy.StateID>();
+    Amy.StateID prevState = Player.State.GetPreviousStateID<Amy.StateID>();
+
+    // better than just applying down force using Vector3.UnitY :D
+    Vector3 up = Vector3.Transform(Vector3.UnitY, Quaternion.Normalize(kinematics->Rotation));
+    float rot_y = Vector3.Transform(Vector3.UnitY, kinematics->Rotation).Y;
+
+    float minSpeed = MathHelpers.Clamp(Player.Kinematics.GetHorizontalMagnitude(), float.Parse(LRSParams.current_template["MinSpeed"]["min"]), float.Parse(LRSParams.current_template["MinSpeed"]["max"]));
+
+    // used for the lock on i think
+    bool isCyber = IS_WORLD_FLAG(IsCyberSpace);
+
+    // timer creation, duh.
+    Time.CreateTimer("RollBallTimerA", false);
+    Time.CreateTimer("RollTimeA", false);
+    Time.CreateTimer("RollExitTimerA", false);
+    Time.CreateTimer("RollExitAnimTimerA", false);
+    
+    // transition to ball anim timer
+    if (Time.GetTimer("RollBallTimerA") >= float.Parse(LRSParams.current_template["Anim"]["timeToBall"])) {
+        Time.SetTimer("RollBallTimerA", 0.0f, false);
+        
+        if (bool.Parse(LRSParams.config["Misc"]["ball_enabled"]))
+            Player.Effect.PlayAnimationEffect(bool.Parse(LRSParams.config["Misc"]["ball_stretch"]) ? "SPINJUMP" : "SPIN");
+        else
+            Player.Animation.SetAnimation(LRSParams.current_template["Anim"]["spinLoopASM"]);
+        
+        if (bool.Parse(LRSParams.config["Misc"]["voice_enabled"]))
+            Lua.Call("PlayVoice", GetVoiceClip());
+    }
+
+    void RotateTowardsVelocity() {
+        Quaternion lookRotation = VectorHelpers.LookRotation(kinematics->Velocity, up);
+        kinematics->Rotation = Quaternion.Slerp(kinematics->Rotation, lookRotation, Time.GetDeltaTime() * float.Parse(LRSParams.current_template["Roll"]["rotateToVelLerpSpeed"]));
+    }
+
+    void RollUpdate() {
+        exitRollJump = false;
+        exitRollJumpSelector = false;
+        rollVelocity = kinematics->Velocity;
+          
+        if (!Player.Status.IsGrounded())
+            return;
+
+        if (bool.Parse(LRSParams.current_template["Roll"]["rotateToVel"]) && kinematics->Position.Y < lastY)
+            RotateTowardsVelocity();
+
+        startMomentum = MathHelpers.Lerp(startMomentum, 0.0f, Time.GetDeltaTime() * (Player.Status.IsSideView() ? float.Parse(LRSParams.current_template["Roll"]["startMomentumReturnSpeedSide"]) : float.Parse(LRSParams.current_template["Roll"]["startMomentumReturnSpeedForward"])));
+
+        kinematics->Velocity += Player.Kinematics.GetForward() * startMomentum * (Player.Status.IsSideView() ? float.Parse(LRSParams.current_template["Roll"]["startMomentumFrontSide"]) : float.Parse(LRSParams.current_template["Roll"]["startMomentumFrontForward"])) * Time.GetDeltaTime();
+        kinematics->Velocity -= up * startMomentum * (Player.Status.IsSideView() ? float.Parse(LRSParams.current_template["Roll"]["startMomentumDownSide"]) : float.Parse(LRSParams.current_template["Roll"]["startMomentumDownForward"])) * Time.GetDeltaTime();
+        
+        if (Math.Abs(rot_y - 1.0f) >= 0.01f && kinematics->Position.Y < lastY) {
+            kinematics->Velocity += Player.Kinematics.GetForward() * rollDownMult * float.Parse(LRSParams.current_template["RollSlope"]["forwardAddMult"]) * (Player.Status.IsSideView() ? float.Parse(LRSParams.current_template["RollSlope"]["forwardSideMult"]) : 1.0f) * Time.GetDeltaTime();
+            kinematics->Velocity -= up * rollDownMult * float.Parse(LRSParams.current_template["RollSlope"]["downAddMult"]) * (Player.Status.IsSideView() ? float.Parse(LRSParams.current_template["RollSlope"]["downSideMult"]) : 1.0f) * Time.GetDeltaTime();
+            rollDownMult += Time.GetDeltaTime() * float.Parse(LRSParams.current_template["RollSlope"]["rollDownSpeed"]) * (Player.Status.IsSideView() ? float.Parse(LRSParams.current_template["RollSlope"]["rollDownSideMult"]) : 1.0f);
+            rollDownMult = MathHelpers.Clamp(rollDownMult, float.Parse(LRSParams.current_template["RollSlope"]["rollDownMultMin"]) * (Player.Status.IsSideView() ? float.Parse(LRSParams.current_template["RollSlope"]["rollDownMultMinMaxSideMult"]) : 1.0f), float.Parse(LRSParams.current_template["RollSlope"]["rollDownMultMax"]) * (Player.Status.IsSideView() ? float.Parse(LRSParams.current_template["RollSlope"]["rollDownMultMinMaxSideMult"]) : 1.0f));
+            downMomentum = Player.Kinematics.GetMagnitude();
+        }
+        else {
+            rollDownMult = MathHelpers.Lerp(rollDownMult, float.Parse(LRSParams.current_template["RollFlat"]["rollDownMultTarget"]), Time.GetDeltaTime() * float.Parse(LRSParams.current_template["RollSlope"]["rollDownSpeed"]) * float.Parse(LRSParams.current_template["RollFlat"]["rollDownSpeedMult"]));
+            kinematics->Velocity += Player.Kinematics.GetForward() * (downMomentum + rollDownMult) * float.Parse(LRSParams.current_template["RollFlat"]["downMomentumMult"]) * Time.GetDeltaTime();
+            downMomentum = MathHelpers.Lerp(downMomentum, 1.0f, Time.GetDeltaTime() * float.Parse(LRSParams.current_template["RollFlat"]["downMomentumReturnSpeed"]));
+        }
+
+        if (Player.Input.IsDown(Player.InputActionType.PlayerJump))
+            Player.Effect.StopAnimationEffects();
+            
+        lastY = kinematics->Position.Y;
+    }
+
+    void RollBegin() {
+        ballAnim = true;
+        downMomentum = 0.0f;
+        upSpeedAdded = false;
+        exitAnim = false;
+        startMomentum = Player.Kinematics.GetHorizontalMagnitude() * 0.9f;
+        Time.SetTimer("RollBallTimerA", 0.0f, true);
+        Time.SetTimer("RollTimeA", 0.0f, true);
+        Player.Animation.SetAnimation(LRSParams.current_template["Anim"]["spinEnterASM"]);
+        Player.Effect.StopAnimationEffects();
+        if (bool.Parse(LRSParams.current_template["Roll"]["useTrail"]))
+            Player.Effect.PlayEffect("roll_trail", LRSParams.current_template["Roll"]["trailCEMTName"]);
+        
+        Player.Collision.SetCollisionSphere(Player.CollisionType.Damage, 2.5f);
+        Player.Collision.SetEntityCollision(false);
+        lastY = kinematics->Position.Y;
+        canStickRoll = false;
+    }
+
+    void RollEnd() {
+        bHeld = true;
+        if (!BallStates.Contains(state))
+            Player.Effect.StopAnimationEffects();   
+        ballAnim = false;
+        Player.Effect.StopEffect("roll_trail");
+        exitRollJumpSelector = (state == Amy.StateID.StateHoldStand);
+        Player.Collision.SetCollisionSphere(Player.CollisionType.Default, 1.0f);
+        Player.Collision.SetEntityCollision(true);
+    }
+
+    void RollAirExit() {
+        switch (LRSParams.current_template["Roll"]["airExitType"].ToLower()) {
+            case "fall":
+                Player.State.SetState<Amy.StateID>(Amy.StateID.StateFall);
+                break;
+            case "trick":
+                Player.State.SetState<Amy.StateID>(Amy.StateID.StateBumpJump);
+                Player.Animation.SetAnimation("BUMP_JUMP_START");
+                break;
+            case "spin_boost":
+                Player.State.SetState<Amy.StateID>(Amy.StateID.StateSpinBoost);
+                break;
+            case "recovery_jump":
+                Player.State.SetState<Amy.StateID>(Amy.StateID.StateRecoveryJump);
+                break;
+            case "drop_dash":
+                Player.State.SetState<Amy.StateID>(Amy.StateID.StateDropDash);
+                break;
+            default:
+                break;
+        }
+        if (!upSpeedAdded && Math.Abs(rot_y - 1.0f) >= 0.01f) {
+            upSpeedAdded = true;
+            kinematics->Velocity += Vector3.UnitY * rollVelocity.Length() * float.Parse(LRSParams.current_template["Roll"]["airExitMult"]);
+        }
+    }
+
+    void RollLockOn() {
+        var Amy = GameManager.GetGameObject("PlayerAmy");
+        var lockOnTarget = Player.Status.GetLockOnTarget();
+
+        if (!Player.Status.IsGrounded())
+            return;
+
+        if (Player.Kinematics.GetHorizontalMagnitude() >= float.Parse(LRSParams.current_template["LockOn"]["maxSpeed"]))
+            return;
+
+        if (Amy == null || lockOnTarget == null || GameObject.GetGOC(lockOnTarget, "GOCHealth") == null || GameObject.GetGOC(lockOnTarget, "GOCTransform") == null)
+            return;
+
+        Vector3 targetPos = GameObject.GetGOC<GOCTransform>(lockOnTarget)->Position;
+        Quaternion targetRot = GameObject.GetGOC<GOCTransform>(lockOnTarget)->Rotation;
+
+        targetPos -= VectorHelpers.GetForward(targetRot) * 1.5f;
+
+        if (Vector3.Distance(targetPos, kinematics->Position) >= float.Parse(LRSParams.current_template["LockOn"]["maxDist"]) || Vector3.Distance(targetPos, kinematics->Position) <= float.Parse(LRSParams.current_template["LockOn"]["minDist"]))
+            return;
+
+        Vector3 targetPoint = new Vector3(targetPos.X, kinematics->Position.Y, targetPos.Z) - kinematics->Position;
+        Quaternion lookRotation = VectorHelpers.LookRotation(targetPoint, up);
+
+        kinematics->Rotation = Quaternion.Slerp(kinematics->Rotation, lookRotation, Time.GetDeltaTime() * float.Parse(LRSParams.current_template["LockOn"]["rotSlerpSpeed"]));
+        kinematics->Velocity = Vector3.Lerp(kinematics->Velocity, Player.Kinematics.GetForward() * float.Parse(LRSParams.current_template["LockOn"]["moveSpeed"]) * Time.GetDeltaTime(), Time.GetDeltaTime() * float.Parse(LRSParams.current_template["LockOn"]["moveLerpSpeed"]));
+    }
+
+    if (state == Amy.StateID.StateSliding) {    
+        if (!ballAnim)
+            RollBegin();
+        
+        RollUpdate();
+        
+        if (bool.Parse(LRSParams.current_template["LockOn"]["enabled"]) && !isCyber)
+            RollLockOn();
+
+        if (!Player.Status.IsGrounded())
+            RollAirExit();
+    }
+    else {
+        if (ballAnim)
+            RollEnd();
+
+        startMomentum = 0.0f;
+        downMomentum = 0.0f;
+        rollDownMult = 1.0f;
+
+        Time.SetTimer("RollTimeA", 0.0f, false);
+        Time.SetTimer("RollBallTimerA", 0.0f, false);
+    }
+    
+    if (Player.Input.IsPressed(Player.InputActionType.PlayerStomping) && bHeld)
+        bHeld = false;
+    
+    if (XInput.GetAnalog(0).Length() <= 0.1f && !canStickRoll)
+        canStickRoll = true;
+
+    if (!bHeld && EnterSlideStates.Contains(state) && Player.Kinematics.GetMagnitude() > 0.0f && !IS_WORLD_FLAG(IsOutOfControl) && Player.Input.IsDown(Player.InputActionType.PlayerStomping)) 
+        Player.State.SetState<Amy.StateID>(Amy.StateID.StateSliding);
+    
+    if (canStickRoll && XInput.GetAnalog(0).Length() >= 0.5f && state == Amy.StateID.StateSquat && !IS_WORLD_FLAG(IsOutOfControl) && Player.Input.IsDown(Player.InputActionType.PlayerStomping))
+        Player.State.SetState<Amy.StateID>(Amy.StateID.StateSliding);
+
+    // Jumpselector fix
+    if (prevState == Amy.StateID.StateHoldStand && state == Amy.StateID.StateSpringJump && exitRollJumpSelector) {
+        Player.Effect.StopAnimationEffects();
+        exitRollJumpSelector = false;
+    }
+
+    if (state == Amy.StateID.StateJump && prevState == Amy.StateID.StateSliding && !exitRollJump) {
+        exitRollJump = true;
+
+        if (bool.Parse(LRSParams.current_template["RollJump"]["trick"]))
+            Player.State.SetState<Amy.StateID>(Amy.StateID.StateBumpJump);
+        
+        if (!bool.Parse(LRSParams.current_template["RollJump"]["enabled"]))
+            return;
+
+        kinematics->Velocity *= new Vector3(float.Parse(LRSParams.current_template["RollJump"]["xVelMult"]), float.Parse(LRSParams.current_template["RollJump"]["yVelMult"]), float.Parse(LRSParams.current_template["RollJump"]["zVelMult"]));
+        
+        if (bool.Parse(LRSParams.current_template["RollJump"]["particles_enabled"]))
+            Player.Effect.StopAnimationEffects();
+
+        Player.Animation.SetAnimation(LRSParams.current_template["Anim"]["rollJumpASM"]);
+        
+        if (!bool.Parse(LRSParams.current_template["RollJump"]["particles_enabled"]))
+            Player.Effect.StopAnimationEffects();
+    }
+
+    // enter roll from dropdash or spindash
+    if (Player.Input.IsDown(Player.InputActionType.PlayerStomping) && !IS_WORLD_FLAG(IsOutOfControl) && Player.Status.IsGrounded() && (state == Amy.StateID.StateDropDash || state == Amy.StateID.StateSpinBoost) && bool.Parse(LRSParams.current_template["Roll"]["enterFromSpinningStates"])) {
+        Player.State.SetState<Amy.StateID>(Amy.StateID.StateSliding);
+    }
+
+    // for letting go of the roll button or tapping again
+    void ManualExitRoll() {
+        Amy.StateID airState = bool.Parse(LRSParams.current_template["Roll"]["trickAirRelease"]) ? Amy.StateID.StateBumpJump : Amy.StateID.StateFall;
+        Amy.StateID groundState = Amy.StateID.StateRun;
+        
+        Player.State.SetState<Amy.StateID>(Player.Status.IsGrounded() ? groundState : airState);
+
+        if (bool.Parse(LRSParams.current_template["Roll"]["trickAirRelease"]))
+            Player.Animation.SetAnimation("BUMP_JUMP_START");
+        
+        if (Player.Kinematics.GetHorizontalMagnitude() <= float.Parse(LRSParams.current_template["Roll"]["horzMagMaxExit"]))
+            kinematics->Velocity += Player.Kinematics.GetForward() * rollVelocity.Length() * float.Parse(LRSParams.current_template["Roll"]["velMultExit"]);
+    }
+
+    if (!Player.Input.IsDown(Player.InputActionType.PlayerStomping) && state == Amy.StateID.StateSliding && Time.GetTimer("RollTimeA") >= float.Parse(LRSParams.current_template["Roll"]["cooldown"]) && LRSParams.config["Input"]["input_type"] == "hold") {
+        ManualExitRoll();
+    }
+    else if (Player.Input.IsPressed(Player.InputActionType.PlayerStomping) && state == Amy.StateID.StateSliding && Time.GetTimer("RollTimeA") >= float.Parse(LRSParams.current_template["Roll"]["cooldown"]) && LRSParams.config["Input"]["input_type"] == "tap") {
+        ManualExitRoll();
+    }
+
+    // somersault or roll exit animation stuff
+    if (state == Amy.StateID.StateRun && prevState == Amy.StateID.StateSliding && bool.Parse(LRSParams.current_template["Roll"]["exitRollAnim"]) && !exitAnim) {
+        Time.SetTimer("RollExitTimerA", 0.0f, true);
+        exitAnim = true;
+    }
+
+    if (Time.GetTimer("RollExitTimerA") > 0.0f) {
+        Player.Animation.SetAnimation("SPRING_LANDING");
+        Time.SetTimer("RollExitTimerA", 0.0f, false);
+        Time.SetTimer("RollExitAnimTimerA", 0.0f, true);
+    }
+
+    if (Time.GetTimer("RollExitAnimTimerA") >= 0.3f) {
+        switch (state) {
+            case Amy.StateID.StateRun:
+                Player.Animation.SetAnimation("RUNNING");
+                break;
+            case Amy.StateID.StateStand:
+                Player.Animation.SetAnimation("STAND");
+                break;
+            case Amy.StateID.StateStandRoot:
+                Player.Animation.SetAnimation("STAND");
+                break;
+            case Amy.StateID.StateFall:
+                Player.Animation.SetAnimation("FALL");
+                break;
+            default:
+                break;
+        }
+        Time.SetTimer("RollExitAnimTimerA", 0.0f, false);
+    }
+    else if (Time.GetTimer("RollExitAnimTimerA") > 0.0f) {
+        switch (state) {
+            case Amy.StateID.AmyStateTarotBuild:
+                Player.Animation.SetAnimation("BOOST_POWER_START");
+                Time.SetTimer("RollExitAnimTimerA", 0.0f, false);
+                break;
+            case Amy.StateID.AmyStateTarotBoost:
+                Player.Animation.SetAnimation("BOOST_POWER_LOOP");
+                Time.SetTimer("RollExitAnimTimerA", 0.0f, false);
+                break;
+            case Amy.StateID.AmyStateTarotBoostFall:
+                Player.Animation.SetAnimation("BOOST_POWER_LOOP");
+                Time.SetTimer("RollExitAnimTimerA", 0.0f, false);
+                break;
+            case Amy.StateID.AmyStateTarotDrift:
+                Player.Animation.SetAnimation("BOOST_POWER_LOOP");
+                Time.SetTimer("RollExitAnimTimerA", 0.0f, false);
+                break;
+            case Amy.StateID.AmyStateTarotBoostAir:
+                Player.Animation.SetAnimation("BOOST_POWER_LOOP");
+                Time.SetTimer("RollExitAnimTimerA", 0.0f, false);
+                break;
+            default:
+                break;
+        }
+    }
+
+    if (AmyParametersInfo.pData == null)
+        return;
+
+    if (state == Amy.StateID.StateSliding) {
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.common.slidingMaxSlope, float.Parse(LRSParams.current_template["MaxSlope"]["sliding"]));
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.minSpeed, (Player.Status.IsSideView() ? minSpeed * float.Parse(LRSParams.current_template["MinSpeed"]["sideViewMult"]) : minSpeed * float.Parse(LRSParams.current_template["MinSpeed"]["forwardViewMult"])));
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.endSpeed, (Player.Status.IsSideView() ? float.Parse(LRSParams.current_template["EndSpeed"]["sideView"]) : float.Parse(LRSParams.current_template["EndSpeed"]["forwardView"])));
+
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.deceleJerk, (Player.Status.IsSideView() ? float.Parse(LRSParams.current_template["Decel"]["sideViewJerk"]) : float.Parse(LRSParams.current_template["Decel"]["forwardViewJerk"])) / (MathHelpers.Lerp(1.0f, rollDownMult, float.Parse(LRSParams.current_template["Decel"]["downMult"]))));
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.deceleJerkContinue, (Player.Status.IsSideView() ? float.Parse(LRSParams.current_template["Decel"]["sideViewJerkContinue"]) : float.Parse(LRSParams.current_template["Decel"]["forwardViewJerkContinue"])) / (MathHelpers.Lerp(1.0f, rollDownMult, float.Parse(LRSParams.current_template["Decel"]["downMult"]))));
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.deceleForceMax, (Player.Status.IsSideView() ? float.Parse(LRSParams.current_template["Decel"]["sideViewJerkMax"]) : float.Parse(LRSParams.current_template["Decel"]["forwardViewJerkMax"])) / (MathHelpers.Lerp(1.0f, rollDownMult, float.Parse(LRSParams.current_template["Decel"]["downMult"]))));
+
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.baseRotateForce, float.Parse(LRSParams.current_template["Rotation"]["baseForce"]));
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.baseRotateForceSpeed, float.Parse(LRSParams.current_template["Rotation"]["baseForceSpeed"]));
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.maxRotateForce, float.Parse(LRSParams.current_template["Rotation"]["maxForce"]));
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.frontRotateRatio, float.Parse(LRSParams.current_template["Rotation"]["frontRatio"]));
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.rotationForceAutoRun,float.Parse(LRSParams.current_template["Rotation"]["autoRunForce"]));
+
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.minContinueTime, float.Parse(LRSParams.current_template["AutoRun"]["minContinueTime"]));
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.maxAutoRunTime, float.Parse(LRSParams.current_template["AutoRun"]["maxTime"]));
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.endSpeedAutoRun, float.Parse(LRSParams.current_template["AutoRun"]["endSpeed"]));
+    }
+    else {
+        RFL_RESET_PARAM(AmyParametersInfo, AmyParameters.Root, forwardView.modePackage.common.slidingMaxSlope);
+        RFL_RESET_PARAM(AmyParametersInfo, AmyParameters.Root, forwardView.modePackage.sliding.movableMaxSlope);
+    }
+
+    if (Player.Status.IsGrounded()) {
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.gravitySize, (isCyber ? float.Parse(LRSParams.current_template["Gravity"]["cyberBase"]) : float.Parse(LRSParams.current_template["Gravity"]["islandBase"])) * MathHelpers.Lerp(1.0f, rollDownMult, float.Parse(LRSParams.current_template["Gravity"]["downMultFactor"])));
+    }    
+    else {
+        RFL_SET_PARAM(AmyParametersInfo, forwardView.modePackage.sliding.gravitySize, float.Parse(LRSParams.current_template["Gravity"]["airBase"]));
+    }
+
+}

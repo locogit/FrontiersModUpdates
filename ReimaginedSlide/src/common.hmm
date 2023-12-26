@@ -1,0 +1,175 @@
+Library "LRSParams" by "Locomotivesss"  // Loco Reimagined Slide Params
+{
+    #lib "Player"
+    #lib "HMM"
+    #lib "INI"
+    
+    using System;
+    using System.Collections.Generic;
+    using System.Windows.Forms;
+    using System.IO;
+
+    #load "System.Windows.Forms.dll"
+
+
+    const string ModFolderName = "ReimaginedSlide";
+    const string TemplateFolderName = "ReimaginedSlideTemplates";
+
+    public static Dictionary<string, Dictionary<string, string>> current_template;
+    public static Dictionary<string, Dictionary<string, string>> config;
+    
+    static string GetParamTemplate() {
+        switch (Player.GetPlayerType()) {
+            case Player.PlayerType.Sonic:
+                return "Sonic.ini";
+            case Player.PlayerType.Amy:
+                return "Amy.ini";
+            case Player.PlayerType.Tails:
+                return "Tails.ini";
+            case Player.PlayerType.Knuckles:
+                return "Knuckles.ini";
+            default:
+                return "Sonic.ini";
+        }
+    }
+
+    static string GetModPath() {
+        // Reads the user's current mod profile INI
+        var modsDb = HMM.GetModsDatabase();
+        string modIniPath = string.Empty;
+
+        // Traverses the mod profile INI to find our mod
+        foreach (var entry in modsDb["Mods"])
+        {
+            if (entry.Value.Contains(ModFolderName))
+            {
+                // Found our mod, so store the path to its mod.ini in modIniPath
+                modIniPath = entry.Value;
+            }
+        }
+
+        // Ensure mod.ini exists (it always should)
+        if (!File.Exists(modIniPath)) {
+            MessageBox.Show("Couldn't Find Mod Folder!", "Error", MessageBoxButtons.OK);
+            System.Environment.Exit(1);
+            return "";
+        }
+        
+        // Get the path to mod.ini
+        string modPath = Path.GetDirectoryName(modIniPath);
+        return modPath;
+    }
+
+    static Dictionary<string, Dictionary<string, string>> GetINI(string path = "config.ini") {   
+        // Get the path to mod.ini
+        string modPath = GetModPath();
+
+        // Get the path to our mod config INI
+        string configIniPath = Path.Combine(modPath, path);
+
+        if (!File.Exists(configIniPath)) {
+            MessageBox.Show($"Couldn't Find INI File ({path})!", "Error", MessageBoxButtons.OK);
+            System.Environment.Exit(1);
+            return new Dictionary<string, Dictionary<string, string>>();
+        }
+
+        /* If you intend to store your config params in mod.ini, change configIniPath here
+        to modIniPath and remove the previous code until the File.Exists(modIniPath) condition */
+        return INI.Read(configIniPath);
+    }
+
+    static bool HasModTemplateINI() {   
+        // Reads the user's current mod profile INI
+        var mods = HMM.GetMods();
+
+        foreach (var entry in mods)
+        {
+            if (File.Exists(Path.Combine(entry.Path, TemplateFolderName, GetParamTemplate())))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static string GetModTemplatePath() {   
+        // Reads the user's current mod profile INI
+        var mods = HMM.GetMods();
+
+        // Traverses the mod profile INI to find our mod
+        foreach (var entry in mods)
+        {
+            if (File.Exists(Path.Combine(entry.Path, TemplateFolderName, GetParamTemplate())))
+            {
+                return entry.Path;
+            }
+        }
+
+        return "";
+    }
+
+    static Dictionary<string, Dictionary<string, string>> GetModTemplateINI() {   
+        // Get the path to mod.ini
+        string modPath = GetModTemplatePath();
+
+        // Get the path to our mod config INI
+        string configIniPath = Path.Combine(modPath, TemplateFolderName, GetParamTemplate());
+
+        if (!File.Exists(configIniPath)) {
+            MessageBox.Show($"Couldn't Find INI File ({GetParamTemplate()})!", "Error", MessageBoxButtons.OK);
+            System.Environment.Exit(1);
+            return new Dictionary<string, Dictionary<string, string>>();
+        }
+
+        /* If you intend to store your config params in mod.ini, change configIniPath here
+        to modIniPath and remove the previous code until the File.Exists(modIniPath) condition */
+        return INI.Read(configIniPath);
+    }
+
+    [LibraryInitializer]
+    public void Init() {
+        config = GetINI(); // default is config.ini obv
+        current_template = GetINI(Path.Combine(TemplateFolderName, GetParamTemplate()));
+        
+        if (HasModTemplateINI())
+            current_template = GetModTemplateINI();
+    }
+    
+    [LibraryUpdate]
+    public void Update()
+    {     
+        if (config != GetINI())
+            config = GetINI();
+
+        if (HasModTemplateINI()) {
+            current_template = GetModTemplateINI();
+            return;
+        }
+        
+        if (current_template != GetINI(Path.Combine(TemplateFolderName, GetParamTemplate())))
+            current_template = GetINI(Path.Combine(TemplateFolderName, GetParamTemplate()));
+    }
+}
+
+Patch "Mod Requirements/Reccomendations" in "System" by "Locomotivesss" does "Tell the user if mods or codes are required or recommended for a better experience"
+//
+    #lib "HMM"
+    #lib "INI"
+    using System.Windows.Forms;
+    #load "System.Windows.Forms.dll"
+
+    static bool initiated = false;
+//
+{
+    if (!initiated) {
+        initiated = true;
+
+        if (!HMM.GetCodes().Contains("Physics/Retain Horizontal Velocity from Jump")) {
+            MessageBox.Show("Please enable the code \"Retain Horizontal Velocity from Jump\" in the \"Physics\" category for a better experience.", "Warning", MessageBoxButtons.OK);
+        }
+        if (!HMM.GetCodes().Contains("Gameplay/Skills/Sonic/Disable Loop Kick on Slide")) {
+            MessageBox.Show("Please enable the code \"Disable Loop Kick on Slide\" in the \"Gameplay/Skills/Sonic\" category for a better experience.", "Warning", MessageBoxButtons.OK);
+        }
+    }
+}
