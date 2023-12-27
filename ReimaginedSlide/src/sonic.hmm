@@ -98,15 +98,19 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
     
     // transition to ball anim timer
     if (Time.GetTimer("RollBallTimer") >= float.Parse(LRSParams.current_template["Anim"]["timeToBall"])) {
-        Time.SetTimer("RollBallTimer", 0.0f, false);
-        
-        if (bool.Parse(LRSParams.config["Misc"]["ball_enabled"]))
+        if (bool.Parse(LRSParams.config["Misc"]["ball_enabled"])) {
+            Console.WriteLine("hai");
+            Player.Effect.StopAnimationEffects();
             Player.Effect.PlayAnimationEffect(bool.Parse(LRSParams.config["Misc"]["ball_stretch"]) ? "SPINJUMP" : "SPIN");
-        else
+        }
+        else {
             Player.Animation.SetAnimation(LRSParams.current_template["Anim"]["spinLoopASM"]);
+        }
         
         if (bool.Parse(LRSParams.config["Misc"]["voice_enabled"]))
             Lua.Call("PlayVoice", GetVoiceClip());
+        
+        Time.SetTimer("RollBallTimer", 0.0f, false);
     }
 
     void RotateTowardsVelocity() {
@@ -143,9 +147,6 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
             downMomentum = MathHelpers.Lerp(downMomentum, 1.0f, Time.GetDeltaTime() * float.Parse(LRSParams.current_template["RollFlat"]["downMomentumReturnSpeed"]));
         }
 
-        if (Player.Input.IsDown(Player.InputActionType.PlayerJump))
-            Player.Effect.StopAnimationEffects();
-
         lastY = kinematics->Position.Y;
     }
 
@@ -179,6 +180,13 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
 
         int rollSound = Player.Sound.PlaySound(LRSParams.current_template["Roll"]["rollSound"]);
         Player.Sound.StopSound(&rollSound);
+
+        startMomentum = 0.0f;
+        downMomentum = 0.0f;
+        rollDownMult = 1.0f;
+
+        Time.SetTimer("RollTime", 0.0f, false);
+        Time.SetTimer("RollBallTimer", 0.0f, false);
     }
 
     void RollAirExit() {
@@ -248,13 +256,6 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
     else {
         if (ballAnim)
             RollEnd();
-
-        startMomentum = 0.0f;
-        downMomentum = 0.0f;
-        rollDownMult = 1.0f;
-
-        Time.SetTimer("RollTime", 0.0f, false);
-        Time.SetTimer("RollBallTimer", 0.0f, false);
     }
 
     // Jumpselector fix
@@ -302,6 +303,8 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
     // enter roll from dropdash or spindash
     if (Player.Input.IsDown(Player.InputActionType.PlayerStomping) && !IS_WORLD_FLAG(IsOutOfControl) && Player.Status.IsGrounded() && (state == Sonic.StateID.StateDropDash || state == Sonic.StateID.StateSpinBoost) && bool.Parse(LRSParams.current_template["Roll"]["enterFromSpinningStates"])) {
         Player.State.SetState<Sonic.StateID>(Sonic.StateID.StateSliding);
+        Player.Effect.StopAnimationEffects();
+        Time.SetTimer("RollBallTimer", 0.0f, true);
     }
 
     // for letting go of the roll button or tapping again

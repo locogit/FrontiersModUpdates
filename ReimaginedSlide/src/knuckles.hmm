@@ -153,9 +153,6 @@ Code "Roll Over Slide [Knuckles]" in "Gameplay" by "Locomotivesss" does "Replace
             kinematics->Velocity += Player.Kinematics.GetForward() * (downMomentum + rollDownMult) * float.Parse(LRSParams.current_template["RollFlat"]["downMomentumMult"]) * Time.GetDeltaTime();
             downMomentum = MathHelpers.Lerp(downMomentum, 1.0f, Time.GetDeltaTime() * float.Parse(LRSParams.current_template["RollFlat"]["downMomentumReturnSpeed"]));
         }
-
-        if (Player.Input.IsDown(Player.InputActionType.PlayerJump))
-            Player.Effect.StopAnimationEffects();
         
         lastY = kinematics->Position.Y;
     }

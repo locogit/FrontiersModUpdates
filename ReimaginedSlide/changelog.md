@@ -1,3 +1,6 @@
+## Loco's Reimagined Slide v2.011
+- Particle Bugfix
+
 ## Loco's Reimagined Slide v2.01
 - Sound Update
 - Character INIs Updated
