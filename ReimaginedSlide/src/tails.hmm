@@ -105,6 +105,7 @@ Code "Roll Over Slide [Tails]" in "Gameplay" by "Locomotivesss" does "Replaces t
     Time.CreateTimer("RollTimeT", false);
     Time.CreateTimer("RollExitTimerT", false);
     Time.CreateTimer("RollExitAnimTimerT", false);
+    Time.CreateTimer("JumpToFallT", false);
     
     // transition to ball anim timer
     if (Time.GetTimer("RollBallTimerT") >= float.Parse(LRSParams.current_template["Anim"]["timeToBall"])) {
@@ -169,6 +170,7 @@ Code "Roll Over Slide [Tails]" in "Gameplay" by "Locomotivesss" does "Replaces t
         Time.SetTimer("RollTimeT", 0.0f, true);
         Player.Animation.SetAnimation(LRSParams.current_template["Anim"]["spinEnterASM"]);
         Player.Effect.StopAnimationEffects();
+        Player.Sound.PlaySound(LRSParams.current_template["Roll"]["rollSound"]);
         if (bool.Parse(LRSParams.current_template["Roll"]["useTrail"]))
             Player.Effect.PlayEffect("roll_trail", LRSParams.current_template["Roll"]["trailCEMTName"]);
         
@@ -187,6 +189,9 @@ Code "Roll Over Slide [Tails]" in "Gameplay" by "Locomotivesss" does "Replaces t
         exitRollJumpSelector = (state == Tails.StateID.StateHoldStand);
         Player.Collision.SetCollisionSphere(Player.CollisionType.Default, 1.0f);
         Player.Collision.SetEntityCollision(true);
+
+        int rollSound = Player.Sound.PlaySound(LRSParams.current_template["Roll"]["rollSound"]);
+        Player.Sound.StopSound(&rollSound);
     }
 
     void RollAirExit() {
@@ -301,9 +306,24 @@ Code "Roll Over Slide [Tails]" in "Gameplay" by "Locomotivesss" does "Replaces t
             Player.Effect.StopAnimationEffects();
 
         Player.Animation.SetAnimation(LRSParams.current_template["Anim"]["rollJumpASM"]);
-        
+        Player.Sound.PlaySound(LRSParams.current_template["RollJump"]["jumpSound"]);
+        Time.SetTimer("JumpToFallT", 0.0f, true);
         if (!bool.Parse(LRSParams.current_template["RollJump"]["particles_enabled"]))
             Player.Effect.StopAnimationEffects();
+    }
+    
+    if (Time.GetTimer("JumpToFallT") >= float.Parse(LRSParams.current_template["RollJump"]["jumpToFallTime"])) {
+        Time.SetTimer("JumpToFallT", 0.0f, false);
+        switch (state) {
+            case Tails.StateID.StateFall:
+                Player.Animation.SetAnimation("FALL");
+                break;
+            case Tails.StateID.StateJump:
+                Player.Animation.SetAnimation("FALL");
+                break;
+            default:
+                break;
+        }
     }
 
     // enter roll from dropdash or spindash

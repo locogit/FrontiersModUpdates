@@ -1,3 +1,7 @@
+## Loco's Reimagined Slide v2.01
+- Sound Update
+- Character INIs Updated
+
 ## Loco's Reimagined Slide v2.0
 - Mod Overhaul
 - Other Characters Can Roll
