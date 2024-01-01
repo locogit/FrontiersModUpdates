@@ -1,3 +1,7 @@
+## Loco's Reimagined Slide v2.012
+- Particle Bugfix (again)
+- Roll Transition Time Increase
+
 ## Loco's Reimagined Slide v2.011
 - Particle Bugfix
 

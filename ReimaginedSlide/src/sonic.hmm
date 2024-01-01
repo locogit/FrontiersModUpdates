@@ -50,7 +50,8 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
         Sonic.StateID.StateSpinBoost,
         Sonic.StateID.StateDoubleJump,
         Sonic.StateID.StateBallMove,
-        Sonic.StateID.StateHoldStand
+        Sonic.StateID.StateHoldStand,
+        Sonic.StateID.StateHomingAttack
     };
 
     static List<string> voiceClips = new(){
@@ -99,8 +100,6 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
     // transition to ball anim timer
     if (Time.GetTimer("RollBallTimer") >= float.Parse(LRSParams.current_template["Anim"]["timeToBall"])) {
         if (bool.Parse(LRSParams.config["Misc"]["ball_enabled"])) {
-            Console.WriteLine("hai");
-            Player.Effect.StopAnimationEffects();
             Player.Effect.PlayAnimationEffect(bool.Parse(LRSParams.config["Misc"]["ball_stretch"]) ? "SPINJUMP" : "SPIN");
         }
         else {
@@ -303,8 +302,6 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
     // enter roll from dropdash or spindash
     if (Player.Input.IsDown(Player.InputActionType.PlayerStomping) && !IS_WORLD_FLAG(IsOutOfControl) && Player.Status.IsGrounded() && (state == Sonic.StateID.StateDropDash || state == Sonic.StateID.StateSpinBoost) && bool.Parse(LRSParams.current_template["Roll"]["enterFromSpinningStates"])) {
         Player.State.SetState<Sonic.StateID>(Sonic.StateID.StateSliding);
-        Player.Effect.StopAnimationEffects();
-        Time.SetTimer("RollBallTimer", 0.0f, true);
     }
 
     // for letting go of the roll button or tapping again

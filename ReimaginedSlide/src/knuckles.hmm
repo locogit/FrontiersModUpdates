@@ -53,7 +53,8 @@ Code "Roll Over Slide [Knuckles]" in "Gameplay" by "Locomotivesss" does "Replace
         Knuckles.StateID.StateSpinBoost,
         Knuckles.StateID.StateDoubleJump,
         Knuckles.StateID.StateBallMove,
-        Knuckles.StateID.StateHoldStand
+        Knuckles.StateID.StateHoldStand,
+        Knuckles.StateID.StateHomingAttack
     };
 
     static List<Knuckles.StateID> EnterSlideStates = new(){

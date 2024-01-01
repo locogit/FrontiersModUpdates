@@ -53,7 +53,8 @@ Code "Roll Over Slide [Tails]" in "Gameplay" by "Locomotivesss" does "Replaces t
         Tails.StateID.StateSpinBoost,
         Tails.StateID.StateDoubleJump,
         Tails.StateID.StateBallMove,
-        Tails.StateID.StateHoldStand
+        Tails.StateID.StateHoldStand,
+        Tails.StateID.StateHomingAttack
     };
 
     static List<Tails.StateID> EnterSlideStates = new(){

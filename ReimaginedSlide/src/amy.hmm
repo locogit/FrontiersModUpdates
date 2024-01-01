@@ -53,7 +53,8 @@ Code "Roll Over Slide [Amy]" in "Gameplay" by "Locomotivesss" does "Replaces the
         Amy.StateID.StateSpinBoost,
         Amy.StateID.StateDoubleJump,
         Amy.StateID.StateBallMove,
-        Amy.StateID.StateHoldStand
+        Amy.StateID.StateHoldStand,
+        Amy.StateID.StateHomingAttack
     };
 
     static List<Amy.StateID> EnterSlideStates = new(){
