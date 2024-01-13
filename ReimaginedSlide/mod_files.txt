@@ -2,8 +2,4 @@ add src/amy.hmm
 add src/knuckles.hmm
 add src/sonic.hmm
 add src/tails.hmm
-add ReimaginedSlideTemplates/Sonic.ini
-add ReimaginedSlideTemplates/Tails.ini
-add ReimaginedSlideTemplates/Knuckles.ini
-add ReimaginedSlideTemplates/Amy.ini
 add mod.ini

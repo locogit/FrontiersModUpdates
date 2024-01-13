@@ -1,3 +1,6 @@
+## Loco's Reimagined Slide v2.013
+- Roll Exit Fix When Entering Rail
+
 ## Loco's Reimagined Slide v2.012
 - Particle Bugfix (again)
 - Roll Transition Time Increase

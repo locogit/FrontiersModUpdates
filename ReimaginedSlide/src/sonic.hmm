@@ -169,8 +169,21 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
     }
 
     void RollEnd() {
-        if (!BallStates.Contains(state))
-            Player.Effect.StopAnimationEffects();   
+        if (!BallStates.Contains(state)) {
+            Player.Effect.StopAnimationEffects();
+        }
+        else {
+            switch (state) {
+                case Sonic.StateID.StateSpinBoostCharge:
+                    Player.Effect.PlayAnimationEffect("SPIN_CHARGE");
+                    break;
+                case Sonic.StateID.StateSpinBoost:
+                    Player.Effect.PlayAnimationEffect("SPINBOOST");
+                    break;
+                default:
+                    break;
+            }
+        }
         ballAnim = false;
         Player.Effect.StopEffect("roll_trail");
         exitRollJumpSelector = (state == Sonic.StateID.StateHoldStand);
@@ -256,7 +269,7 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
         if (ballAnim)
             RollEnd();
     }
-
+    
     // Jumpselector fix
     if (prevState == Sonic.StateID.StateHoldStand && state == Sonic.StateID.StateSpringJump && exitRollJumpSelector) {
         Player.Effect.StopAnimationEffects();
@@ -355,6 +368,16 @@ Code "Roll Over Slide [Sonic]" in "Gameplay" by "Locomotivesss" does "Replaces t
                 break;
         }
         Time.SetTimer("RollExitAnimTimer", 0.0f, false);
+    }
+    else if (Time.GetTimer("RollExitAnimTimer") > 0.0f) {
+        switch (state) {
+            case Sonic.StateID.StateGrind:
+                Player.Animation.SetAnimation("GRIND");
+                Time.SetTimer("RollExitAnimTimer", 0.0f, false);
+                break;
+            default:
+                break;
+        }
     }
 
     if (SonicParametersInfo.pData == null)

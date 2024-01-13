@@ -180,8 +180,21 @@ Code "Roll Over Slide [Amy]" in "Gameplay" by "Locomotivesss" does "Replaces the
 
     void RollEnd() {
         bHeld = true;
-        if (!BallStates.Contains(state))
-            Player.Effect.StopAnimationEffects();   
+        if (!BallStates.Contains(state)) {
+            Player.Effect.StopAnimationEffects();
+        }
+        else {
+            switch (state) {
+                case Amy.StateID.StateSpinBoostCharge:
+                    Player.Effect.PlayAnimationEffect("SPIN_CHARGE");
+                    break;
+                case Amy.StateID.StateSpinBoost:
+                    Player.Effect.PlayAnimationEffect("SPINBOOST");
+                    break;
+                default:
+                    break;
+            }
+        }
         ballAnim = false;
         Player.Effect.StopEffect("roll_trail");
         exitRollJumpSelector = (state == Amy.StateID.StateHoldStand);
@@ -401,6 +414,10 @@ Code "Roll Over Slide [Amy]" in "Gameplay" by "Locomotivesss" does "Replaces the
                 break;
             case Amy.StateID.AmyStateTarotBoostAir:
                 Player.Animation.SetAnimation("BOOST_POWER_LOOP");
+                Time.SetTimer("RollExitAnimTimerA", 0.0f, false);
+                break;
+            case Amy.StateID.StateGrind:
+                Player.Animation.SetAnimation("GRIND");
                 Time.SetTimer("RollExitAnimTimerA", 0.0f, false);
                 break;
             default:

@@ -180,8 +180,21 @@ Code "Roll Over Slide [Knuckles]" in "Gameplay" by "Locomotivesss" does "Replace
 
     void RollEnd() {
         bHeld = true;
-        if (!BallStates.Contains(state))
-            Player.Effect.StopAnimationEffects();   
+        if (!BallStates.Contains(state)) {
+            Player.Effect.StopAnimationEffects();
+        }
+        else {
+            switch (state) {
+                case Knuckles.StateID.StateSpinBoostCharge:
+                    Player.Effect.PlayAnimationEffect("SPIN_CHARGE");
+                    break;
+                case Knuckles.StateID.StateSpinBoost:
+                    Player.Effect.PlayAnimationEffect("SPINBOOST");
+                    break;
+                default:
+                    break;
+            }
+        }
         ballAnim = false;
         Player.Effect.StopEffect("roll_trail");
         exitRollJumpSelector = (state == Knuckles.StateID.StateHoldStand);
@@ -401,6 +414,10 @@ Code "Roll Over Slide [Knuckles]" in "Gameplay" by "Locomotivesss" does "Replace
                 break;
             case Knuckles.StateID.KnucklesStateDrillBoostAir:
                 Player.Animation.SetAnimation("BOOST_POWER_START");
+                Time.SetTimer("RollExitAnimTimerK", 0.0f, false);
+                break;
+            case Knuckles.StateID.StateGrind:
+                Player.Animation.SetAnimation("GRIND");
                 Time.SetTimer("RollExitAnimTimerK", 0.0f, false);
                 break;
             default:

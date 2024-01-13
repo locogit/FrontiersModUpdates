@@ -180,8 +180,21 @@ Code "Roll Over Slide [Tails]" in "Gameplay" by "Locomotivesss" does "Replaces t
 
     void RollEnd() {
         bHeld = true;
-        if (!BallStates.Contains(state))
-            Player.Effect.StopAnimationEffects();   
+        if (!BallStates.Contains(state)) {
+            Player.Effect.StopAnimationEffects();
+        }
+        else {
+            switch (state) {
+                case Tails.StateID.StateSpinBoostCharge:
+                    Player.Effect.PlayAnimationEffect("SPIN_CHARGE");
+                    break;
+                case Tails.StateID.StateSpinBoost:
+                    Player.Effect.PlayAnimationEffect("SPINBOOST");
+                    break;
+                default:
+                    break;
+            }
+        } 
         ballAnim = false;
         Player.Effect.StopEffect("roll_trail");
         exitRollJumpSelector = (state == Tails.StateID.StateHoldStand);
@@ -397,6 +410,10 @@ Code "Roll Over Slide [Tails]" in "Gameplay" by "Locomotivesss" does "Replaces t
                 break;
             case Tails.StateID.StateAirBoostCyclone:
                 Player.Animation.SetAnimation("CYCLONE_BOOST_LOOP");
+                Time.SetTimer("RollExitAnimTimerT", 0.0f, false);
+                break;
+            case Tails.StateID.StateGrind:
+                Player.Animation.SetAnimation("GRIND");
                 Time.SetTimer("RollExitAnimTimerT", 0.0f, false);
                 break;
             default:
